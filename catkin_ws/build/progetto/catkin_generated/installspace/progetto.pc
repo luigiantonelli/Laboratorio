@@ -1,0 +1,8 @@
+prefix=/home/luigi/Scrivania/Progetto/catkin_ws/install
+
+Name: progetto
+Description: Description of progetto
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
