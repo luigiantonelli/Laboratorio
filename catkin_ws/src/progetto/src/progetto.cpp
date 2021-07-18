@@ -12,7 +12,7 @@
 #include "tf/message_filter.h" 
 #include "message_filters/subscriber.h" 
 
-float vel_user, vel_obstacle, x, y; //variabili globali che servono al publisher
+float vel_user, vel_obstacle, x, y; //variabili globali che servono al publisher //
 laser_geometry::LaserProjection projector;
 
 void cmd_vel_user_callback(const geometry_msgs::Twist::ConstPtr& msg){
