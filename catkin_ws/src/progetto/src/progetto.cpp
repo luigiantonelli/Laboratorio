@@ -85,7 +85,7 @@ int main(int argc, char **argv){
         
         pub_vel.publish(msg);
         loop_rate.sleep();
-        ++count;
+        ++count;   
     }
 
     /**
