@@ -12,33 +12,38 @@
 #include "tf/message_filter.h" 
 #include "message_filters/subscriber.h" 
 
-float vel_user, vel_obstacle, x, y; //variabili globali che servono al publisher //
+float vel_user_x, vel_user_y, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher //
 laser_geometry::LaserProjection projector;
+tf::StampedTransform obstacle;
+tf::StampedTransform listener;
+Eigen::Vector2f p;
 
 void cmd_vel_user_callback(const geometry_msgs::Twist::ConstPtr& msg){
-    vel_user = Math.sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y);
-    //fallo per componenti!!
+    vel_user_x = msg.linear.x;
+    vel_user_y = msg.linear.y;
 }
 void laser_scan_callback(const sensor_msgs::LaserScan::ConstPtr& scan){
     sensor_msgs::PointCloud cloud;
     try{
-        tf::StampedTransform listener;
+        
         // Get laser transform in odom frame using the tf listener
         projector.transformLaserScanToPointCloud("base_link",*scan, cloud,listener);
+        listener.waitForTransform("base_footprint", "base_laser_link", ros::Time(0), ros::Duration(10,0));
+        listener.lookupTransform("base_footprint", "base_laser_link", ros::Time(0), obstacle);
+        Eigen::Isometry2f T = convertPose2D(obstacle);
         
-        //Eigen::Isometry2f T = convertPose2D(listener);
-
-
-        vel_obstacle = 0;
         for(auto& point : cloud->points){//modifica usa Eigen e matrice isometria
-            float xi = x - point.x;
-            float yi = y - point.y;
             float norm = Math.sqrt(xi*xi + yi*yi);
-            vel_obstacle += 1/norm;
+            p(0) = point.x;
+            p(1) = point.y;
+            p = T * p; //ostacolo nel sistema di riferimento del robot
+            obstacle_x += p(0)/norm;//due divisioni per norm?
+            obstacle_y += p(1)/norm;
         }
     }
     catch (tf::TransformException& e){
         std::cout << e.what();
+        ros::Duration(1.0).sleep();
         return;
     }    
 }
