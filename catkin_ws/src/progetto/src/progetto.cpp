@@ -32,8 +32,8 @@ void laser_scan_callback(const sensor_msgs::LaserScan::ConstPtr& scan){
         listener.lookupTransform("base_footprint", "base_laser_link", ros::Time(0), obstacle);
         Eigen::Isometry2f T = convertPose2D(obstacle);
         
-        for(auto& point : cloud->points){//modifica usa Eigen e matrice isometria
-            float norm = Math.sqrt(xi*xi + yi*yi);
+        for(auto& point : cloud->points){
+            float norm = Math.sqrt(point.x*point.x + point.y*point.y);
             p(0) = point.x;
             p(1) = point.y;
             p = T * p; //ostacolo nel sistema di riferimento del robot
@@ -67,22 +67,6 @@ int main(int argc, char **argv){
      * NodeHandle destructed will close down the node.
      */
     ros::NodeHandle n;
-
-    /**
-     * The subscribe() call is how you tell ROS that you want to receive messages
-     * on a given topic.  This invokes a call to the ROS
-     * master node, which keeps a registry of who is publishing and who
-     * is subscribing.  Messages are passed to a callback function, here
-     * called chatterCallback.  subscribe() returns a Subscriber object that you
-     * must hold on to until you want to unsubscribe.  When all copies of the Subscriber
-     * object go out of scope, this callback will automatically be unsubscribed from
-     * this topic.
-     *
-     * The second parameter to the subscribe() function is the size of the message
-     * queue.  If messages are arriving faster than they are being processed, this
-     * is the number of messages that will be buffered up before beginning to throw
-     * away the oldest ones.
-     */
     ros::Subscriber sub_vel = n.subscribe("cmd_vel_user", 1000, cmd_vel_user_callback);
     ros::Subscriber sub_laser = n.subscribe("laser_scan", 1000, laser_scan_callback);
     ros::Publisher pub_vel = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
@@ -94,21 +78,12 @@ int main(int argc, char **argv){
      * a unique string for each message.
      */
     int count = 0;
-    while (ros::ok())
-    {
-        /**
-         * This is a message object. You stuff it with data, and then publish it.
-         */
-        //std_msgs::String msg;
+    while (ros::ok()){
         geometry_msgs::Twist msg;
-        float vel_robot = vel_user + vel_obstacle;
-        //msg.linear = vel_robot;
-
+        msg.linear.x = obstacle_x + vel_user_x;
+        msg.linear.y = obstacle_y + vel_user_y;
         
         pub_vel.publish(msg);
-
-        //ros::spinOnce();
-
         loop_rate.sleep();
         ++count;
     }
