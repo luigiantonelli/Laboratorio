@@ -11,12 +11,27 @@
 #include "geometry_msgs/Twist.h"
 #include "tf/message_filter.h" 
 #include "message_filters/subscriber.h" 
+#include <Eigen/Geometry>
 
 float vel_user_x, vel_user_y, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher //
 laser_geometry::LaserProjection projector;
 tf::StampedTransform obstacle;
 tf::StampedTransform listener;
 Eigen::Vector2f p;
+
+inline Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
+    double yaw,pitch,roll;
+    tf::Matrix3x3 mat =  t.getBasis();
+    mat.getRPY(roll, pitch, yaw);
+    Eigen::Isometry2f T;
+    T.setIdentity();
+    Eigen::Matrix2f R;
+    R << std::cos(yaw), -std::sin(yaw),
+        std::sin(yaw), std::cos(yaw);
+    T.linear() = R;
+    T.translation() = Eigen::Vector2f(t.getOrigin().x(), t.getOrigin().y());
+    return T;
+}
 
 void cmd_vel_user_callback(const geometry_msgs::Twist::ConstPtr& msg){
     vel_user_x = msg.linear.x;
@@ -37,8 +52,8 @@ void laser_scan_callback(const sensor_msgs::LaserScan::ConstPtr& scan){
             p(0) = point.x;
             p(1) = point.y;
             p = T * p; //ostacolo nel sistema di riferimento del robot
-            obstacle_x += p(0)/norm;//due divisioni per norm?
-            obstacle_y += p(1)/norm;
+            obstacle_x += (p(0)/norm)/norm;//due divisioni per norm?
+            obstacle_y += (p(1)/norm)/norm;
         }
     }
     catch (tf::TransformException& e){
