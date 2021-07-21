@@ -11,6 +11,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  message_generation
+  sensor_msgs
+  laser_geometry
 )
 
 ## System dependencies are found with CMake's conventions
@@ -68,10 +71,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+   DEPENDENCIES
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -106,6 +109,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES progetto
 #  CATKIN_DEPENDS roscpp rospy std_msgs
+   CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 
@@ -201,6 +205,9 @@ include_directories(
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
-
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
+add_executable(progetto src/progetto.cpp)
+target_link_libraries(progetto ${catkin_LIBRARIES})
+add_dependencies(progetto progetto_generate_messages_cpp)
+add_dependencies(progetto progetto_gencpp)
+include_directories("/usr/include/eigen3")
+## Add folders to be run by python n

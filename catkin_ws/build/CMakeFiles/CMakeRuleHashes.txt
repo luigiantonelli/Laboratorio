@@ -1,2 +1,4 @@
 # Hashes of file build rules.
+65d58f1d4285e71376611aae0980dbff /home/luigi/Scrivania/Progetto/catkin_ws/devel/share/roseus/ros/progetto/manifest.l
 d836f2095952f82cac9de91ef190fa05 CMakeFiles/clean_test_results
+fab4eefeb52416ce7fc71f1c35366aac progetto/CMakeFiles/progetto_generate_messages_eus

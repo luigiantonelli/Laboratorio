@@ -154,7 +154,7 @@ foreach(library ${libraries})
     set(lib_path "")
     set(lib "${library}-NOTFOUND")
     # since the path where the library is found is returned we have to iterate over the paths manually
-    foreach(path /home/luigi/Scrivania/Progetto/catkin_ws/install/lib;/opt/ros/melodic/lib)
+    foreach(path /home/luigi/Scrivania/Progetto/catkin_ws/install/lib;/home/luigi/Scrivania/Progetto/catkin_ws/devel/lib;/opt/ros/melodic/lib)
       find_library(lib ${library}
         PATHS ${path}
         NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
@@ -177,7 +177,7 @@ foreach(library ${libraries})
   endif()
 endforeach()
 
-set(progetto_EXPORTED_TARGETS "")
+set(progetto_EXPORTED_TARGETS "progetto_generate_messages_cpp;progetto_generate_messages_eus;progetto_generate_messages_lisp;progetto_generate_messages_nodejs;progetto_generate_messages_py")
 # create dummy targets for exported code generation targets to make life of users easier
 foreach(t ${progetto_EXPORTED_TARGETS})
   if(NOT TARGET ${t})
@@ -185,7 +185,7 @@ foreach(t ${progetto_EXPORTED_TARGETS})
   endif()
 endforeach()
 
-set(depends "")
+set(depends "message_runtime")
 foreach(depend ${depends})
   string(REPLACE " " ";" depend_list ${depend})
   # the package name of the dependency must be kept in a unique variable so that it is not overwritten in recursive calls
@@ -214,7 +214,7 @@ foreach(depend ${depends})
   list(APPEND progetto_EXPORTED_TARGETS ${${progetto_dep}_EXPORTED_TARGETS})
 endforeach()
 
-set(pkg_cfg_extras "")
+set(pkg_cfg_extras "progetto-msg-extras.cmake")
 foreach(extra ${pkg_cfg_extras})
   if(NOT IS_ABSOLUTE ${extra})
     set(extra ${progetto_DIR}/${extra})

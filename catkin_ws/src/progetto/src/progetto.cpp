@@ -12,14 +12,13 @@
 #include "tf/message_filter.h" 
 #include "message_filters/subscriber.h" 
 #include <Eigen/Geometry>
+#include <cmath>
 
 float vel_user_x, vel_user_y, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher //
 laser_geometry::LaserProjection projector;
-tf::StampedTransform obstacle;
-tf::StampedTransform listener;
 Eigen::Vector2f p;
 
-inline Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
+Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
     double yaw,pitch,roll;
     tf::Matrix3x3 mat =  t.getBasis();
     mat.getRPY(roll, pitch, yaw);
@@ -34,25 +33,27 @@ inline Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
 }
 
 void cmd_vel_user_callback(const geometry_msgs::Twist::ConstPtr& msg){
-    vel_user_x = msg.linear.x;
-    vel_user_y = msg.linear.y;
+    vel_user_x = msg -> linear.x;
+    vel_user_y = msg -> linear.y;
 }
 void laser_scan_callback(const sensor_msgs::LaserScan::ConstPtr& scan){
     sensor_msgs::PointCloud cloud;
     try{
-        
+        tf::StampedTransform obstacle;
+        tf::TransformListener listener;
         // Get laser transform in odom frame using the tf listener
-        projector.transformLaserScanToPointCloud("base_link",*scan, cloud,listener);
+        projector.transformLaserScanToPointCloud("base_link",*scan, cloud, listener);
         listener.waitForTransform("base_footprint", "base_laser_link", ros::Time(0), ros::Duration(10,0));
         listener.lookupTransform("base_footprint", "base_laser_link", ros::Time(0), obstacle);
         Eigen::Isometry2f T = convertPose2D(obstacle);
+        std::cerr << "Matrice T: " << T << std::endl;
         
-        for(auto& point : cloud->points){
-            float norm = Math.sqrt(point.x*point.x + point.y*point.y);
+        for(auto& point : cloud.points){
+            float norm = sqrt(point.x*point.x + point.y*point.y);
             p(0) = point.x;
             p(1) = point.y;
             p = T * p; //ostacolo nel sistema di riferimento del robot
-            obstacle_x += (p(0)/norm)/norm;//due divisioni per norm?
+            obstacle_x += (p(0)/norm)/norm;
             obstacle_y += (p(1)/norm)/norm;
         }
     }
@@ -74,7 +75,7 @@ int main(int argc, char **argv){
      * You must call one of the versions of ros::init() before using any other
      * part of the ROS system.
      */
-    ros::init(argc, argv, "listener");
+    ros::init(argc, argv, "progetto");
 
     /**
      * NodeHandle is the main access point to communications with the ROS system.
@@ -83,7 +84,7 @@ int main(int argc, char **argv){
      */
     ros::NodeHandle n;
     ros::Subscriber sub_vel = n.subscribe("cmd_vel_user", 1000, cmd_vel_user_callback);
-    ros::Subscriber sub_laser = n.subscribe("laser_scan", 1000, laser_scan_callback);
+    ros::Subscriber sub_laser = n.subscribe("base_scan", 1000, laser_scan_callback);
     ros::Publisher pub_vel = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
 
     ros::Rate loop_rate(10);
@@ -94,11 +95,15 @@ int main(int argc, char **argv){
      */
     int count = 0;
     while (ros::ok()){
-        geometry_msgs::Twist msg;
-        msg.linear.x = obstacle_x + vel_user_x;
-        msg.linear.y = obstacle_y + vel_user_y;
-        
+        geometry_msgs::Twist msg;/*
+        std::cerr << "velocità utente x: " << vel_user_x << std::endl;
+        std::cerr << "velocità utente y: " << vel_user_y << std::endl;
+        std::cerr << "ostacoli x: " << obstacle_x << std::endl;
+        std::cerr << "ostacoli y: " << obstacle_y << std::endl;*/
+        msg.linear.x = vel_user_x - obstacle_x;
+        msg.linear.y = vel_user_y - obstacle_y;
         pub_vel.publish(msg);
+        //std::cerr << "cmd vel aggiornato: " <<msg << std::endl;
         loop_rate.sleep();
         ++count;   
     }
