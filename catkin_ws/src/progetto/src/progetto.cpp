@@ -1,7 +1,7 @@
 /**
  * Servono due subscriber e un publisher. L'utente scrive sul topic cmd_vel_user il comando di velocità
  * che vuole mandare al robot, nel main prendiamo con i due subscriber il comando di velocità e i dati del laserscan per
- * scrivere in una struct il comando di velocità effettivo da mandare al robot. Il publisher prende questo dato
+ * scrivere in un twist il comando di velocità effettivo da mandare al robot. Il publisher prende questo dato
  * e lo manda al robot sul topic cmd_vel che non lo manda a sbattere.
  */ 
 #include "ros/ros.h"
@@ -14,9 +14,7 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
-float vel_user_x, vel_user_y, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher //
-laser_geometry::LaserProjection projector;
-Eigen::Vector2f p;
+float vel_user_x = 0, vel_user_y = 0, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher //
 
 Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
     double yaw,pitch,roll;
@@ -32,21 +30,25 @@ Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
     return T;
 }
 
-void cmd_vel_user_callback(const geometry_msgs::Twist::ConstPtr& msg){
-    vel_user_x = msg -> linear.x;
-    vel_user_y = msg -> linear.y;
+void cmdveluserCallback(const geometry_msgs::Twist::ConstPtr& msg){
+    vel_user_x = msg->linear.x;
+    vel_user_y = msg->linear.y;
+    std::cerr << "vel_user_x: " << vel_user_x << std::endl;
+    std::cerr << "vel_user_y: " << vel_user_y << std::endl;
+    return;
 }
-void laser_scan_callback(const sensor_msgs::LaserScan::ConstPtr& scan){
-    sensor_msgs::PointCloud cloud;
+void laserscanCallback(const sensor_msgs::LaserScan::ConstPtr& scan){
     try{
+        sensor_msgs::PointCloud cloud;
+        laser_geometry::LaserProjection projector;
+        Eigen::Vector2f p;
         tf::StampedTransform obstacle;
         tf::TransformListener listener;
         // Get laser transform in odom frame using the tf listener
-        projector.transformLaserScanToPointCloud("base_link",*scan, cloud, listener);
+        projector.transformLaserScanToPointCloud("base_laser_link",*scan, cloud, listener);
         listener.waitForTransform("base_footprint", "base_laser_link", ros::Time(0), ros::Duration(10,0));
         listener.lookupTransform("base_footprint", "base_laser_link", ros::Time(0), obstacle);
         Eigen::Isometry2f T = convertPose2D(obstacle);
-        std::cerr << "Matrice T: " << T << std::endl;
         
         for(auto& point : cloud.points){
             float norm = sqrt(point.x*point.x + point.y*point.y);
@@ -56,6 +58,7 @@ void laser_scan_callback(const sensor_msgs::LaserScan::ConstPtr& scan){
             obstacle_x += (p(0)/norm)/norm;
             obstacle_y += (p(1)/norm)/norm;
         }
+        return;
     }
     catch (tf::TransformException& e){
         std::cout << e.what();
@@ -83,9 +86,9 @@ int main(int argc, char **argv){
      * NodeHandle destructed will close down the node.
      */
     ros::NodeHandle n;
-    ros::Subscriber sub_vel = n.subscribe("cmd_vel_user", 1000, cmd_vel_user_callback);
-    ros::Subscriber sub_laser = n.subscribe("base_scan", 1000, laser_scan_callback);
-    ros::Publisher pub_vel = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
+    ros::Subscriber sub_vel = n.subscribe("/cmd_vel_user", 1, cmdveluserCallback);
+    ros::Subscriber sub_laser = n.subscribe("/base_scan", 1, laserscanCallback);
+    ros::Publisher pub_vel = n.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
 
     ros::Rate loop_rate(10);
 
@@ -95,14 +98,24 @@ int main(int argc, char **argv){
      */
     int count = 0;
     while (ros::ok()){
-        geometry_msgs::Twist msg;/*
+        ros::spinOnce();
+        geometry_msgs::Twist msg;
+        if(vel_user_x == 0 && vel_user_y == 0){
+            continue;
+        }
         std::cerr << "velocità utente x: " << vel_user_x << std::endl;
         std::cerr << "velocità utente y: " << vel_user_y << std::endl;
+        obstacle_x = (obstacle_x/5000)*vel_user_x;
+        obstacle_y = (obstacle_y/5000)*vel_user_y;
         std::cerr << "ostacoli x: " << obstacle_x << std::endl;
-        std::cerr << "ostacoli y: " << obstacle_y << std::endl;*/
+        std::cerr << "ostacoli y: " << obstacle_y << std::endl;
         msg.linear.x = vel_user_x - obstacle_x;
         msg.linear.y = vel_user_y - obstacle_y;
         pub_vel.publish(msg);
+        vel_user_x = 0;
+        vel_user_y = 0;
+        obstacle_x = 0;
+        obstacle_y = 0;
         //std::cerr << "cmd vel aggiornato: " <<msg << std::endl;
         loop_rate.sleep();
         ++count;   
