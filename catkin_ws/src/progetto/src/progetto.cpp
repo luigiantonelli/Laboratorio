@@ -109,8 +109,11 @@ int main(int argc, char **argv){
         obstacle_y = (obstacle_y/5000)*vel_user_y;
         std::cerr << "ostacoli x: " << obstacle_x << std::endl;
         std::cerr << "ostacoli y: " << obstacle_y << std::endl;
-        msg.linear.x = vel_user_x - obstacle_x;
-        msg.linear.y = vel_user_y - obstacle_y;
+        float vel_out_x = vel_user_x - obstacle_x;
+        float vel_out_y = vel_user_y - obstacle_y;
+        msg.linear.x = vel_out_x;
+        msg.linear.y = vel_out_y;
+        msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/2;
         pub_vel.publish(msg);
         vel_user_x = 0;
         vel_user_y = 0;
