@@ -1,8 +1,8 @@
 /**
- * Servono due subscriber e un publisher. L'utente scrive sul topic cmd_vel_user il comando di velocità
+ * Servono due subscriber e un publisher. L'utente scrive sul topic /cmd_vel_user il comando di velocità
  * che vuole mandare al robot, nel main prendiamo con i due subscriber il comando di velocità e i dati del laserscan per
- * scrivere in un twist il comando di velocità effettivo da mandare al robot. Il publisher prende questo dato
- * e lo manda al robot sul topic cmd_vel che non lo manda a sbattere.
+ * scrivere in un twist il comando di velocità effettivo da mandare al robot. Il publisher manda il twist al robot 
+ * sul topic cmd_vel che non lo manda a sbattere.
  */ 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
@@ -14,7 +14,7 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
-float vel_user_x = 0, vel_user_y = 0, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher //
+float vel_user_x = 0, vel_user_y = 0, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher 
 
 Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
     double yaw,pitch,roll;
@@ -30,27 +30,28 @@ Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
     return T;
 }
 
-void cmdveluserCallback(const geometry_msgs::Twist::ConstPtr& msg){
+void cmdveluserCallback(const geometry_msgs::Twist::ConstPtr& msg){//funzione di callback del subscriber per il comando di velocità dell'utente
     vel_user_x = msg->linear.x;
     vel_user_y = msg->linear.y;
     std::cerr << "vel_user_x: " << vel_user_x << std::endl;
     std::cerr << "vel_user_y: " << vel_user_y << std::endl;
     return;
 }
-void laserscanCallback(const sensor_msgs::LaserScan::ConstPtr& scan){
+void laserscanCallback(const sensor_msgs::LaserScan::ConstPtr& scan){//funzione di callback del subscriber per il laserscan
     try{
         sensor_msgs::PointCloud cloud;
         laser_geometry::LaserProjection projector;
         Eigen::Vector2f p;
         tf::StampedTransform obstacle;
         tf::TransformListener listener;
-        // Get laser transform in odom frame using the tf listener
+        
         projector.transformLaserScanToPointCloud("base_laser_link",*scan, cloud, listener);
         listener.waitForTransform("base_footprint", "base_laser_link", ros::Time(0), ros::Duration(10,0));
         listener.lookupTransform("base_footprint", "base_laser_link", ros::Time(0), obstacle);
-        Eigen::Isometry2f T = convertPose2D(obstacle);
+        Eigen::Isometry2f T = convertPose2D(obstacle); //matrice per trasformare le coordinate degli ostacoli 
+                                                       //(dal sistema di riferimento del laser a quello del robot)
         
-        for(auto& point : cloud.points){
+        for(auto& point : cloud.points){//itero sugli ostacoli per calcolare il loro contributo sulla forza risultante 
             float norm = sqrt(point.x*point.x + point.y*point.y);
             p(0) = point.x;
             p(1) = point.y;
@@ -68,23 +69,9 @@ void laserscanCallback(const sensor_msgs::LaserScan::ConstPtr& scan){
 }
 
 int main(int argc, char **argv){
-    /**
-     * The ros::init() function needs to see argc and argv so that it can perform
-     * any ROS arguments and name remapping that were provided at the command line.
-     * For programmatic remappings you can use a different version of init() which takes
-     * remappings directly, but for most command-line programs, passing argc and argv is
-     * the easiest way to do it.  The third argument to init() is the name of the node.
-     *
-     * You must call one of the versions of ros::init() before using any other
-     * part of the ROS system.
-     */
+    
     ros::init(argc, argv, "progetto");
 
-    /**
-     * NodeHandle is the main access point to communications with the ROS system.
-     * The first NodeHandle constructed will fully initialize this node, and the last
-     * NodeHandle destructed will close down the node.
-     */
     ros::NodeHandle n;
     ros::Subscriber sub_vel = n.subscribe("/cmd_vel_user", 1, cmdveluserCallback);
     ros::Subscriber sub_laser = n.subscribe("/base_scan", 1, laserscanCallback);
@@ -92,10 +79,6 @@ int main(int argc, char **argv){
 
     ros::Rate loop_rate(10);
 
-    /**
-     * A count of how many messages we have sent. This is used to create
-     * a unique string for each message.
-     */
     int count = 0;
     while (ros::ok()){
         ros::spinOnce();
@@ -111,8 +94,10 @@ int main(int argc, char **argv){
         std::cerr << "ostacoli y: " << obstacle_y << std::endl;
         float vel_out_x = vel_user_x - obstacle_x;
         float vel_out_y = vel_user_y - obstacle_y;
+        //velocità effettiva da scrivere sul topic /cmd_vel
         msg.linear.x = vel_out_x;
         msg.linear.y = vel_out_y;
+        //per far roteare il robot in prossimità di un ostacolo
         msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/2;
         pub_vel.publish(msg);
         vel_user_x = 0;
@@ -123,12 +108,6 @@ int main(int argc, char **argv){
         loop_rate.sleep();
         ++count;   
     }
-
-    /**
-     * ros::spin() will enter a loop, pumping callbacks.  With this version, all
-     * callbacks will be called from within this thread (the main one).  ros::spin()
-     * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
-     */
     ros::spin();
 
     return 0;
