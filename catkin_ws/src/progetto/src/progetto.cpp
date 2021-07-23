@@ -15,7 +15,7 @@
 #include <cmath>
 
 float vel_user_x = 0, vel_user_y = 0, obstacle_x = 0, obstacle_y = 0; //variabili globali che servono al publisher 
-
+float angular_z = 0;
 Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
     double yaw,pitch,roll;
     tf::Matrix3x3 mat =  t.getBasis();
@@ -33,8 +33,10 @@ Eigen::Isometry2f convertPose2D(const tf::StampedTransform& t) {
 void cmdveluserCallback(const geometry_msgs::Twist::ConstPtr& msg){//funzione di callback del subscriber per il comando di velocità dell'utente
     vel_user_x = msg->linear.x;
     vel_user_y = msg->linear.y;
+    angular_z = msg -> angular.z;
     std::cerr << "vel_user_x: " << vel_user_x << std::endl;
     std::cerr << "vel_user_y: " << vel_user_y << std::endl;
+    std::cerr << "angular_z: " << angular_z << std::endl;
     return;
 }
 void laserscanCallback(const sensor_msgs::LaserScan::ConstPtr& scan){//funzione di callback del subscriber per il laserscan
@@ -83,7 +85,7 @@ int main(int argc, char **argv){
     while (ros::ok()){
         ros::spinOnce();
         geometry_msgs::Twist msg;
-        if(vel_user_x == 0 && vel_user_y == 0){
+        if(vel_user_x == 0 && vel_user_y == 0 && angular_z == 0){
             continue;
         }
         /*
@@ -102,9 +104,9 @@ int main(int argc, char **argv){
         //per far roteare il robot in prossimità di un ostacolo
         std::cerr << "rot: " << rot << std::endl;
         if(abs(rot) < 0.5)
-            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/10;
+            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/10 + angular_z;
         else
-            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x);
+            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x) + angular_z;
         //msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*rot)/4;
         pub_vel.publish(msg);
         vel_user_x = 0;
