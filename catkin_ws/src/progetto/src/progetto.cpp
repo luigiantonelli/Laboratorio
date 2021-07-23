@@ -73,7 +73,7 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "progetto");
 
     ros::NodeHandle n;
-    ros::Subscriber sub_vel = n.subscribe("/cmd_vel_user", 1, cmdveluserCallback);
+    ros::Subscriber sub_vel = n.subscribe("/cmd_vel_user", 1000, cmdveluserCallback);
     ros::Subscriber sub_laser = n.subscribe("/base_scan", 1, laserscanCallback);
     ros::Publisher pub_vel = n.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
 
@@ -86,10 +86,12 @@ int main(int argc, char **argv){
         if(vel_user_x == 0 && vel_user_y == 0){
             continue;
         }
+        /*
         std::cerr << "velocità utente x: " << vel_user_x << std::endl;
-        std::cerr << "velocità utente y: " << vel_user_y << std::endl;
+        std::cerr << "velocità utente y: " << vel_user_y << std::endl;*/
         obstacle_x = (obstacle_x/5000)*vel_user_x;
-        obstacle_y = (obstacle_y/5000)*vel_user_y;
+        float rot = obstacle_y/5000;
+        obstacle_y = rot*vel_user_y;
         std::cerr << "ostacoli x: " << obstacle_x << std::endl;
         std::cerr << "ostacoli y: " << obstacle_y << std::endl;
         float vel_out_x = vel_user_x - obstacle_x;
@@ -98,7 +100,12 @@ int main(int argc, char **argv){
         msg.linear.x = vel_out_x;
         msg.linear.y = vel_out_y;
         //per far roteare il robot in prossimità di un ostacolo
-        msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/2;
+        std::cerr << "rot: " << rot << std::endl;
+        if(abs(rot) < 0.5)
+            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/10;
+        else
+            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x);
+        //msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*rot)/4;
         pub_vel.publish(msg);
         vel_user_x = 0;
         vel_user_y = 0;
