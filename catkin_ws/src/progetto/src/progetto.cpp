@@ -91,9 +91,25 @@ int main(int argc, char **argv){
         /*
         std::cerr << "velocità utente x: " << vel_user_x << std::endl;
         std::cerr << "velocità utente y: " << vel_user_y << std::endl;*/
-        obstacle_x = (obstacle_x/5000)*vel_user_x;
         float rot = obstacle_y/5000;
-        obstacle_y = rot*vel_user_y;
+        if(angular_z && vel_user_x == 0){
+            obstacle_x = (obstacle_x/800);
+        }
+        else if(angular_z){
+            obstacle_x = (obstacle_x/800)*vel_user_x; 
+        }
+        else{
+            obstacle_x = (obstacle_x/5000)*vel_user_x; 
+        }
+        if(angular_z && vel_user_y == 0){
+            obstacle_y = obstacle_y/800;
+        }
+        else if(angular_z){
+            obstacle_y = (obstacle_y/800)*vel_user_y;
+        }
+        else{
+            obstacle_y = rot*vel_user_y;
+        }
         std::cerr << "ostacoli x: " << obstacle_x << std::endl;
         std::cerr << "ostacoli y: " << obstacle_y << std::endl;
         float vel_out_x = vel_user_x - obstacle_x;
@@ -103,16 +119,20 @@ int main(int argc, char **argv){
         msg.linear.y = vel_out_y;
         //per far roteare il robot in prossimità di un ostacolo
         std::cerr << "rot: " << rot << std::endl;
-        if(abs(rot) < 0.5)
-            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/10 + angular_z;
-        else
-            msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x) + angular_z;
+        if(count){
+            if(abs(rot) < 0.5)
+                msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x)/10 + angular_z;
+            else
+                msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*obstacle_x) + angular_z;
+        }
         //msg.angular.z = (sqrt(vel_user_x*vel_user_x + vel_user_y*vel_user_y)*rot)/4;
         pub_vel.publish(msg);
         vel_user_x = 0;
         vel_user_y = 0;
         obstacle_x = 0;
         obstacle_y = 0;
+        angular_z = 0;
+        rot = 0;
         //std::cerr << "cmd vel aggiornato: " <<msg << std::endl;
         loop_rate.sleep();
         ++count;   
